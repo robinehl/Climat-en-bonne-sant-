@@ -1,0 +1,67 @@
+library(stringr)
+library(tidytext)
+library(dplyr)
+
+# Comptage pour les occurrences des débats portant sur un projet de loi conçu pour être répété pour tout texte
+
+# CR_Chemin doit être remplacé par une variable vers le chemin du fichier contenant les retranscriptions
+CR_Fichiers <- list.files(path = CR_Chemin, pattern = "\\.txt$", full.names = TRUE)
+CR_Bruts <- character()
+for (CR_Seance in CR_Fichiers) {
+  CR_temp_read <- readLines(CR_Seance, encoding = "UTF-8")
+  CR_Bruts <- c(CR_Bruts, CR_temp_read)
+}
+Texte_Entier <- paste(CR_Bruts, collapse = " ")
+Phrases <- unlist(str_split(Texte_Entier, "(?<!M)\\."))
+Phrases <- trimws(Phrases)
+Phrases <- Phrases[Phrases != ""]
+
+Comptage <- function(Compteur_Fonction, Terme_a_tmp, Terme_b_tmp) {
+  grepl(Terme_a_tmp, Compteur_Fonction, ignore.case = TRUE) && grepl(Terme_b_tmp, Compteur_Fonction, ignore.case = TRUE)
+}
+
+Comptage_Compteur <- setNames(rep(0L, 5), c(
+  "santé et climat",
+  "sanitaire et climatique",
+  "sanitaires et climatiques",
+  "sanitaire et climatiques",
+  "sanitaires et climatique"
+))
+
+Citations <- character()
+
+for (Compteur_Fonction in Phrases) {
+  if (Comptage(Compteur_Fonction, "santé", "climat")) {
+    Comptage_Compteur[1] <- Comptage_Compteur[1] + 1L
+    Citations <- c(Citations, Compteur_Fonction)
+  } else if (Comptage(Compteur_Fonction, "sanitaire", "climatique")) {
+    Comptage_Compteur[2] <- Comptage_Compteur[2] + 1L
+    Citations <- c(Citations, Compteur_Fonction)
+  } else if (Comptage(Compteur_Fonction, "sanitaires", "climatiques")) {
+    Comptage_Compteur[3] <- Comptage_Compteur[3] + 1L
+    Citations <- c(Citations, Compteur_Fonction)
+  } else if (Comptage(Compteur_Fonction, "sanitaire", "climatiques")) {
+    Comptage_Compteur[4] <- Comptage_Compteur[4] + 1L
+    Citations <- c(Citations, Compteur_Fonction)
+  } else if (Comptage(Compteur_Fonction, "sanitaires", "climatique")) {
+    Comptage_Compteur[5] <- Comptage_Compteur[5] + 1L
+    Citations <- c(Citations, Compteur_Fonction)
+  }
+}
+
+for (Comptage_Resultat in names(Comptage_Compteur)) {
+  cat("Phrases '", Comptage_Resultat, "' : ", Comptage_Compteur[[Comptage_Resultat]], "\n", sep = "")
+}
+
+cat("\nListe :\n")
+for (i in seq_along(Citations)) {
+  cat("- ", Citations[i], "\n", sep = "")
+}
+
+### Comptage des 100 termes les plus fréquents évoqués au cours du débat
+
+Citations <- readLines("Citations AN.txt")
+liste <- data_frame(Citations = Citations) %>% 
++     unnest_tokens(terme, Citations) %>%
++     count(terme, sort = TRUE)
+print(n=100, liste)
