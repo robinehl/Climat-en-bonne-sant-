@@ -1,0 +1,8 @@
+library(readxl)
+library(ggplot2)
+Chaleur_Morts <- read_excel("Chaleur et mortalité 2025.xlsx")
+regression <- lm(MORTS_2025_BASSE ~ PAUVRE, data = Chaleur_Morts)
+summary(regression)
+regression <- lm(PAUVRE ~ MORTS_2025_BASSE, data = Chaleur_Morts)
+summary(regression)
+ggplot(Chaleur_Morts, aes(x= MORTS_2025_BASSE, y = PAUVRE)) + geom_point() + geom_smooth(method = "lm", se = FALSE) + labs(title = "Taux de mortalité par chaleur au cours de l'été 2025 et taux de pauvreté par département", x = "Part de la mortalité causée par la chaleur (en %)", y = "Taux de pauvreté (en %)")
