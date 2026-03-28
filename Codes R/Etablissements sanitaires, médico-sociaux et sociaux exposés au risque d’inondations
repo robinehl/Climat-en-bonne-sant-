@@ -1,0 +1,225 @@
+# Code R utilisé pour la version 2025.09.1 Build 401
+
+library(sf)
+library(dplyr)
+library(readxl)
+library(dplyr)
+
+## NB : Le code ne peut pas être exécuté d'un coup, car les résultats des calculs sont à lire manuellement après les différentes étapes
+
+#########################################################
+## Partie pour les calculs pour l'Hexagone et la Corse ##
+#########################################################
+
+Etablissements_loc <- st_read("Etablissements FI-NESS/ars_metropole_finess_annuaire_p.shp")
+Zone_Inondable <- st_read("Zones inondables/n_carte_inond_s.shp")
+Etablissements_loc <- st_as_sf(Etablissements_loc, sf_column_name = "geometry", crs = 4326)
+
+# Exposition de l’ensemble des établissements FINESS
+
+Exposition <- st_intersects(Etablissements_loc, Zone_Inondable, sparse = FALSE)
+Etablissements_loc$Inondable <- as.integer(rowSums(Exposition) > 0)
+Nb_Etablissements <- nrow(Etablissements_loc)
+
+Nb_Etablissements_inondables <- sum(Etablissements_loc$Inondable)
+Part_Etablissements_inondables <- (Nb_Etablissements_inondables / Nb_Etablissements) * 100
+
+# Exposition des hôpitaux
+
+Hopitaux_cat <- c("101", "355", "292", "131", "106", "109", "362", "122", "128", "129", "365", "156", "161", "366", "412", "415", "425", "430", "444")
+Hopitaux_loc <- Etablissements_loc %>% filter(categorie %in% Hopitaux_cat)
+
+Exposition_Hopitaux <- st_intersects(Hopitaux_loc, Zone_Inondable, sparse = FALSE)
+Hopitaux_loc$Inondable <- as.integer(rowSums(Exposition_Hopitaux) > 0)
+
+Nb_Hopitaux <- nrow(Hopitaux_loc)
+Nb_Hopitaux_inondables <- sum(Hopitaux_loc$Inondable)
+Part_Hopitaux_inondables <- (Nb_Hopitaux_inondables / Nb_Hopitaux) * 100
+
+# Exposition des établissements d’accueil de personnes en situation de handicap
+
+EANM_FAM_cat <- c("448", "449")
+EANM_FAM_loc <- Etablissements_loc %>% filter(categorie %in% EANM_FAM_cat)
+ 
+Exposition_EANM_FAM <- st_intersects(EANM_FAM_loc, Zone_Inondable, sparse = FALSE)
+EANM_FAM_loc$Inondable <- as.integer(rowSums(Exposition_EANM_FAM) > 0)
+ 
+Nb_EANM_FAM <- nrow(EANM_FAM_loc)
+Nb_EANM_FAM_inondables <- sum(EANM_FAM_loc$Inondable)
+Part_EANM_FAM_inondables <- (Nb_EANM_FAM_inondables / Nb_EANM_FAM) * 100
+
+# Exposition des centres d’action médico-sociale précoce
+
+CAMSP_cat <- c("190")
+CAMSP_loc <- Etablissements_loc %>% filter(categorie %in% CAMSP_cat)
+
+Exposition_CAMSP <- st_intersects(CAMSP_loc, Zone_Inondable, sparse = FALSE)
+CAMSP_loc$Inondable <- as.integer(rowSums(Exposition_CAMSP) > 0)
+
+Nb_CAMSP <- nrow(CAMSP_loc)
+Nb_CAMSP_inondables <- sum(CAMSP_loc$Inondable)
+Part_CAMSP_inondables <- (Nb_CAMSP_inondables / Nb_CAMSP) * 100
+
+# Exposition des EHPAD
+
+EHPAD_cat <- c("500")
+EHPAD_loc <- Etablissements_loc %>% filter(categorie %in% EHPAD_cat)
+
+Exposition_EHPAD <- st_intersects(EHPAD_loc, Zone_Inondable, sparse = FALSE)
+EHPAD_loc$Inondable <- as.integer(rowSums(Exposition_EHPAD) > 0)
+
+Nb_EHPAD <- nrow(EHPAD_loc)
+Nb_EHPAD_inondables <- sum(EHPAD_loc$Inondable)
+Part_EHPAD_inondables <- (Nb_EHPAD_inondables / Nb_EHPAD) * 100
+
+# Nombre de lits des hôpitaux exposés aux inondations
+
+Capacités <- read_excel("Lits d'hôpitaux par établissement.xlsx")
+Etablissements_loc <- left_join(Etablissements_loc, Capacités, by = c("finess" = "FINESS"))
+Lits_Hopitaux_inondables <- sum(Etablissements_loc$LITS_Ensemble[Etablissements_loc$Inondable == 1], na.rm = TRUE)
+
+
+##########################################################
+## Calculs pour les départements et régions d'Outre-mer ##
+##########################################################
+
+## Guadeloupe
+
+# Importation données
+Etablissements <- read_delim("etalab-cs1100507-stock-20260311-0343.csv", delim = ";", escape_double = FALSE, trim_ws = TRUE)
+shp_files <- list.files(
+  path = "Guadeloupe",
+  pattern = "\\.shp$",
+  recursive = TRUE,
+  full.names = TRUE
+) 
+zones_inondables <- map_dfr(shp_files, read_sf, .id = "source") 
+# Contrôler la projection des zones inondables pour pouvoir adapter les coordonnées des établissements des établissements de santé en fonction
+st_crs(zones_inondables)
+
+# Filtrage des établissements pour le territoire
+etablissements_Guadeloupe <- Etablissements %>% filter(`15` == "GUADELOUPE")
+etablissements_geo_Guadeloupe <- st_as_sf(etablissements_Guadeloupe, coords = c("Coordo_X", "Coordo_Y"), crs = 4559)
+
+Exposition <- st_intersects(etablissements_geo_Guadeloupe, zones_inondables, sparse = FALSE)
+etablissements_geo_Guadeloupe$inondable <- as.integer(rowSums(Exposition) > 0)
+Etablissements_inondables_Guadeloupe <- nrow(etablissements_geo_guadeloupe)
+
+# EHPAD
+EHPAD_guadeloupe <- etablissements_geo_guadeloupe %>% filter(`19` == 500) # Catégorie 500 EHPHAD
+Exposition <- st_intersects(EHPAD_guadeloupe, zones_inondables, sparse = FALSE)
+EHPAD_guadeloupe$inondable <- as.integer(rowSums(Exposition) > 0)
+Nb_EHPAD <- nrow(EHPAD_guadeloupe)
+Nb_EHPAD_inondables <- sum(EHPAD_guadeloupe$inondable)
+Part_EHPAD_inondables <- (Nb_EHPAD_inondables / Nb_EHPAD) * 100
+
+## Guyane
+
+# Importation données
+Etablissements <- read_delim("etalab-cs1100507-stock-20260311-0343.csv", delim = ";", escape_double = FALSE, trim_ws = TRUE)
+shp_files <- list.files(
+  path = "Guyane",
+  pattern = "\\.shp$",
+  recursive = TRUE,
+  full.names = TRUE
+) 
+zones_inondables <- map_dfr(shp_files, read_sf, .id = "source") 
+# Contrôler la projection des zones inondables pour pouvoir adapter les coordonnées des établissements des établissements de santé en fonction
+st_crs(zones_inondables) # > EPSG 2972 (RGFG95 métrique) pour la Guyane
+
+# Filtrage des établissements pour le territoire
+etablissements_Guyane <- Etablissements %>% filter(`15` == "GUYANE")
+etablissements_geo_Guyane <- st_as_sf(etablissements_Guyane, coords = c("Coordo_X", "Coordo_Y"), crs = 2972)
+
+exposition <- st_intersects(etablissements_geo_Guyane, zones_inondables, sparse = FALSE)
+etablissements_geo_Guyane$inondable <- as.integer(rowSums(exposition) > 0)
+Nb_etablissements <- nrow(etablissements_geo_Guyane)
+Nb_etablissements_inondables <- sum(etablissements_geo_Guyane$inondable)
+Part_etablissements_inondables <- (Nb_etablissements_inondables / Nb_etablissements) * 100
+
+# EHPAD
+EHPAD_Guyane <- etablissements_geo_Guyane %>% filter(`19` == 500) # Catégorie 500 EHPHAD
+exposition <- st_intersects(EHPAD_Guyane, zones_inondables, sparse = FALSE)
+EHPAD_Guyane$inondable <- as.integer(rowSums(exposition) > 0)
+Nb_EHPAD <- nrow(EHPAD_Guyane)
+Nb_EHPAD_inondables <- sum(EHPAD_Guyane$inondable)
+Part_EHPAD_inondables <- (Nb_EHPAD_inondables / Nb_EHPAD) * 100
+
+## La Réunion
+
+# Importation données
+Etablissements <- read_delim("etalab-cs1100507-stock-20260311-0343.csv", delim = ";", escape_double = FALSE, trim_ws = TRUE)
+shp_files <- list.files(
+  path = "La Réunion",
+  pattern = "\\.shp$",
+  recursive = TRUE,
+  full.names = TRUE
+) 
+zones_inondables <- map_dfr(shp_files, read_sf, .id = "source") 
+# Contrôler la projection des zones inondables pour pouvoir adapter les coordonnées des établissements des établissements de santé en fonction
+st_crs(zones_inondables) # > EPSG 2975 (RGR92 métrique) pour La Réunion
+
+# Filtrage des établissements pour le territoire
+etablissements_La_Reunion <- Etablissements %>% filter(`15` == "LA REUNION")
+etablissements_geo_La_Reunion <- st_as_sf(etablissements_La_Reunion, coords = c("Coordo_X", "Coordo_Y"), crs = 2975)
+
+exposition <- st_intersects(etablissements_geo_La_Reunion, zones_inondables, sparse = FALSE)
+etablissements_geo_La_Reunion$inondable <- as.integer(rowSums(exposition) > 0)
+Nb_etablissements <- nrow(etablissements_geo_La_Reunion)
+Nb_etablissements_inondables <- sum(etablissements_geo_La_Reunion$inondable)
+Part_etablissements_inondables <- (Nb_etablissements_inondables / Nb_etablissements) * 100
+
+# EHPAD
+EHPAD_La_Reunion <- etablissements_geo_La_Reunion %>% filter(`19` == 500) # Catégorie 500 EHPHAD
+exposition <- st_intersects(EHPAD_La_Reunion, zones_inondables, sparse = FALSE)
+EHPAD_La_Reunion$inondable <- as.integer(rowSums(exposition) > 0)
+Nb_EHPAD <- nrow(EHPAD_La_Reunion)
+Nb_EHPAD_inondables <- sum(EHPAD_La_Reunion$inondable)
+Part_EHPAD_inondables <- (Nb_EHPAD_inondables / Nb_EHPAD) * 100
+
+# Foyer d’accueil de personnes en situation de handicap
+EANM_FAM_loc <- etablissements_geo_La_Reunion %>% filter(`19` == 448 | `19` == 449)
+Exposition_EANM_FAM <- st_intersects(EANM_FAM_loc, zones_inondables, sparse = FALSE)
+EANM_FAM_loc$inondable <- as.integer(rowSums(Exposition_EANM_FAM) > 0)
+
+Nb_EANM_FAM <- nrow(EANM_FAM_loc)
+Nb_EANM_FAM_inondables <- sum(EANM_FAM_loc$inondable)
+Part_EANM_FAM_inondables <- (Nb_EANM_FAM_inondables / Nb_EANM_FAM) * 100
+
+## Martinique
+
+# Importation données
+Etablissements <- read_delim("etalab-cs1100507-stock-20260311-0343.csv", delim = ";", escape_double = FALSE, trim_ws = TRUE)
+shp_files <- list.files(
+  path = "Martinique",
+  pattern = "\\.shp$",
+  recursive = TRUE,
+  full.names = TRUE
+) 
+zones_inondables <- map_dfr(shp_files, read_sf, .id = "source") 
+# Contrôler la projection des zones inondables pour pouvoir adapter les coordonnées des établissements des établissements de santé en fonction
+st_crs(zones_inondables) # > EPSG 4559 (RRAF 1991 métrique) pour Martinique
+
+# Filtrage des établissements pour le territoire
+etablissements_Martinique <- Etablissements %>% filter(`15` == "MARTINIQUE")
+etablissements_geo_Martinique <- st_as_sf(etablissements_Martinique, coords = c("Coordo_X", "Coordo_Y"), crs = 4559)
+
+exposition <- st_intersects(etablissements_geo_Martinique, zones_inondables, sparse = FALSE)
+etablissements_geo_Martinique$inondable <- as.integer(rowSums(exposition) > 0)
+Nb_etablissements <- nrow(etablissements_geo_Martinique)
+Nb_etablissements_inondables <- sum(etablissements_geo_Martinique$inondable)
+Part_etablissements_inondables <- (Nb_etablissements_inondables / Nb_etablissements) * 100
+
+# EHPAD
+EHPAD_Martinique <- etablissements_geo_Martinique %>% filter(`19` == 500) # Catégorie 500 EHPHAD
+exposition <- st_intersects(EHPAD_Martinique, zones_inondables, sparse = FALSE)
+EHPAD_Martinique$inondable <- as.integer(rowSums(exposition) > 0)
+Nb_EHPAD <- nrow(EHPAD_Martinique)
+Nb_EHPAD_inondables <- sum(EHPAD_Martinique$inondable)
+Part_EHPAD_inondables <- (Nb_EHPAD_inondables / Nb_EHPAD) * 100
+
+# Foyer d’accueil de personnes en situation de handicap
+EANM_FAM_loc <- etablissements_geo_Martinique %>% filter(`19` == 448 | `19` == 449)
+# > Aucun établissement avec numéro FINESS en Martinique, pas de calcul du taux d’exposition
+
+# Mayotte -> vu qu'aucun établissement n'est renseigné dans le registre FINESS, aucune estimation n'a été réalisée pour Mayotte
