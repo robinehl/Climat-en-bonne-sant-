@@ -1,0 +1,17 @@
+library(ggplot2)
+library(Hmisc)
+library(corrplot)
+library(readxl)
+
+pollution <- read_excel("Pollution feux de forêt.xlsx")
+
+
+surface <- mesures$`Surface brûlée dans l'Hexagone et en Corse (hectares)`
+emissions <- mesures$`Emissions PM 2,5 de la végétation Hexagone et Corse (kT par an)`
+cor.test(surface, emissions)
+
+corr <- lm(surface ~ emissions, data = mesures)
+summary(corr)
+
+PollutionFeux <- as.matrix(cbind(emissions, surface))
+ggplot(PollutionFeux, aes(x = emissions, y = surface)) + geom_point(color = "red", size = 2) + geom_smooth(method = "lm", color = "orange", se = FALSE) + labs(title = "Pollution de particules fines et surface brûlée entre 2006 et 2024", x = "Emissions de particules fines PM 2,5 provenant de la végétation (kilotonnes)", y = "Surface brûlée (hectares)") + theme_minimal()
