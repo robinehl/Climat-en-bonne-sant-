@@ -1,0 +1,70 @@
+library(sf)
+library(dplyr)
+library(stringr)
+library(readxl)
+library(ggplot2)
+library(units)
+library(openxlsx)
+
+# Il s’agit du modèle de syntaxe permettant de calculer l’index pour une métropole
+
+# S’il s’agit d’une métropole qui comprend de communes appartenant à différents départements, cette importation doit être répété pour les données de tous les départements concernés en remplaçant ‘00’ ou ‘000’ par le numéro du département
+Arbres_00 <- st_read("000_Communes_COSIA_light.gpkg", layer = "couvert_arbore")
+Arbres_00$superficie <- as.numeric(st_area(Arbres_00))
+
+# La ligne de code est à exécuter uniquement pour l’importation des données du premier département sur le territoire de la métropole
+Arbres_Aire_Metrop <- Arbres_00
+
+# Ligne de code à exécuter à partir de l’importation pour un deuxième département sur le territoire de la métropole
+Arbres_Aire_Metrop <- rbind(Arbres_Aire_Metrop, Arbres_00)
+
+# Fin de l’importation, éventuellement répétée pour plusieurs départements
+
+# Importation des contours des IRIS pour les départements concernés. Les numéros ‘00’ sont à remplacer par les numéros des départements sur lesquels s’étend la métropole
+Iris_France <- st_read("contours-iris-pe.gpkg")
+Iris_Aire_Metrop <- Iris_France %>% filter(grepl("^00|^00|^00", code_iris))
+Iris_Aire_Metrop <- st_transform(Iris_Aire_Metrop, st_crs(Arbres_Aire_Metrop))
+
+# Identification des noms des communes
+communes_uniques <- Iris_Aire_Metrop %>% distinct(nom_commune) %>%   arrange(nom_commune)
+write.xlsx(communes_uniques, "Membres_Metropole.xlsx", rowNames = FALSE)
+
+# Création d’une liste des noms des communes composant la métropole. Cette liste doit être créé manuellement en indiquant les noms des communes entre les paranthèses
+communes_Metrop <- c("A ", "B", "C")
+
+# Identification des IRIS qui concernent une des communes de la métropole analysée
+Iris_Metrop <- Iris_00 %>% filter(nom_commune %in% communes_Metrop)
+
+## Etapes supplémentaires pour les métropoles couvrant plusieurs départements qui sont superflues pour celles qui n’en couvrent qu’un seul
+## Identifier les IRIS commune par commune. A cette fin, donner à chaque variable un nom identifiant les communes concernées en remplaçant le terme « COMMUNE » et identifier les IRIS concernés par leur numéro de département en remplaçant les ‘00’ par ce numéro
+#Iris_COMMUNE <- Iris_00 %>% filter(nom_commune == "COMMUNE")
+## Ajouter les IRIS situés en dehors du département principal en ajoutant toutes les IRIS en allongeant, au besoin, la liste (Iris_COMMUNEn)
+#Iris_Metrop <- rbind(Iris_Metrop, Iris_COMMUNE1, Iris_COMMUNE2, Iris_COMMUNE3)
+## Fusionner les données des arbres de tous les départements qui contiennent des communes sur la métropole
+#Arbres_Aire_metropolitaine <- rbind(Arbres_00, Arbres_00, Arbres_00)
+
+# Simplifier les données sur la couverture des arbres, ce qui permet d’économiser du temps de calcul
+Arbres_Aire_metropolitaine_centralise <- st_centroid(Arbres_Aire_metropolitaine)
+# Attributions des données sur la présence des arbres aux IRIS
+Arbres_Iris_Metrop <- st_join(Arbres_Aire_metropolitaine_centralise, Iris_Metrop, join = st_intersects, left = FALSE)
+# Calcul de la surface couverte par des arbres par IRIS
+Arbres_surface_Metrop <- Arbres_Iris_Metrop %>% st_drop_geometry() %>% group_by(code_iris) %>% summarise(surface_totale_m2 = sum(superficie, na.rm = TRUE), nombre_zones = n())
+Iris_superficie_Metrop <- Iris_Metrop %>% mutate(surface = st_area(geometrie))
+Couverture_Arbres_Iris_Metrop <- left_join(Iris_superficie_Metrop, Arbres_surface_Metrop, by = "code_iris")
+Couverture_Arbres_Iris_Metrop <- Couverture_Arbres_Iris_Metrop %>% mutate(taux_arbre = (surface_totale_m2 / surface) * 100)
+
+# Importer les données sur le revenu médian et ajouter ces données à l’objet contenant les informations sur la couverture arborée
+Revenu_France <- read_excel("Revenu 2021.xlsx")
+Revenu_median_France <- Revenu_France %>% select(IRIS, DEC_MED21)
+names(Revenu_median_France)[1] <- 'code_iris'
+Donnees_territoire <- left_join(Couverture_Arbres_Iris_Metrop, Revenu_median_France, by = "code_iris")
+
+# Suppression des champs vides résultant du secret statistique interdisant la diffusion des données sur le revenu pour les IRIS à faible nombre d’habitant·es
+Donnees_territoire_prep <- Donnees_territoire %>% mutate(DEC_MED21 = ifelse(DEC_MED21 == "nd", NA, DEC_MED21))
+Donnees_territoire_prep <- Donnees_territoire_prep %>% mutate(DEC_MED21 = ifelse(DEC_MED21 == "ns", NA, DEC_MED21))
+Donnees_territoire_prep <- Donnees_territoire_prep %>% mutate(DEC_MED21 = as.numeric(DEC_MED21), taux_vegetation = as.numeric(taux_arbre))
+
+# Calcul de la régression linéaire concernant la couverture arborée et le revenu médian par IRIS
+regression <- lm(DEC_MED21 ~ taux_arbre, data = Donnees_territoire_prep)
+summary(regression)
+ggplot(Donnees_territoire_prep, aes(x= taux_arbre, y = DEC_MED21)) + geom_point() + geom_smooth(method = "lm", se = FALSE) + labs(title = "Relation entre revenu median et couverture arborée par Iris", x = "Couverture arborée", y = "Revenu médian")
