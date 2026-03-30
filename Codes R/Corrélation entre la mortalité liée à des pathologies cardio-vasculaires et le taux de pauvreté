@@ -1,15 +1,15 @@
 library(readxl)
 
-Deces <- read_excel("Deces_causes.xlsx", col_types = c("numeric", "numeric", "text", "nu-meric"))
+Deces <- read_excel("Deces_causes.xlsx", col_types = c("numeric", "numeric", "text", "numeric"))
 
-Pauvrete <- read_excel("Pauvrete_DEP.xlsx", col_types = c("numeric", "numeric", "numer-ic", "numeric"))
+Pauvrete <- read_excel("Pauvrete_DEP.xlsx", col_types = c("numeric", "numeric", "numeric", "numeric"))
 
 mortalite_cause_agg <- aggregate(DECES_NB ~ DEP + ANNEE, data = Deces, FUN = sum)
 mortalite_departement <- aggregate(DECES_NB ~ DEP, data = mortalite_cause_agg, FUN = sum)
 
 donnees_combinees <- merge(mortalite_departement, Pauvrete, by = "DEP")
 
-donnees_combinees$taux_mortalite <- (donnees_combinees$DECES_NB / don-nees_combinees$POP) * 100000
+donnees_combinees$taux_mortalite <- (donnees_combinees$DECES_NB / donnees_combinees$POP) * 100000
 
 donnees_combinees <- donnees_combinees[order(donnees_combinees$PAUV_60), ]
 dep_median_eleve<- head(donnees_combinees, 10)
