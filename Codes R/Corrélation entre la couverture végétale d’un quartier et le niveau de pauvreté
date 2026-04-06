@@ -27,19 +27,8 @@ Iris_Aire_Metrop <- st_transform(Iris_Aire_Metrop, st_crs(Arbres_Aire_Metrop))
 
 # Identification des noms des communes
 communes_uniques <- Iris_Aire_Metrop %>% distinct(nom_commune) %>%   arrange(nom_commune)
-write.xlsx(communes_uniques, "Membres_Metropole.xlsx", rowNames = FALSE)
-
-# Création d’une liste des noms des communes composant la métropole. Cette liste doit être créé manuellement en indiquant les noms des communes entre les paranthèses
-communes_Metrop <- c("A ", "B", "C")
-
-# Identification des IRIS qui concernent une des communes de la métropole analysée
-Iris_Metrop <- Iris_00 %>% filter(nom_commune %in% communes_Metrop)
-
-## Etapes supplémentaires pour les métropoles couvrant plusieurs départements qui sont superflues pour celles qui n’en couvrent qu’un seul
-## Identifier les IRIS commune par commune. A cette fin, donner à chaque variable un nom identifiant les communes concernées en remplaçant le terme « COMMUNE » et identifier les IRIS concernés par leur numéro de département en remplaçant les ‘00’ par ce numéro
-#Iris_COMMUNE <- Iris_00 %>% filter(nom_commune == "COMMUNE")
-## Ajouter les IRIS situés en dehors du département principal en ajoutant toutes les IRIS en allongeant, au besoin, la liste (Iris_COMMUNEn)
-#Iris_Metrop <- rbind(Iris_Metrop, Iris_COMMUNE1, Iris_COMMUNE2, Iris_COMMUNE3)
+# Garder uniquement les Iris situés sur le territoire de la commune
+communes_Metrop <- Iris_France %>% filter(nom_commune %in% communes_uniques$nom_commune)
 ## Fusionner les données des arbres de tous les départements qui contiennent des communes sur la métropole
 #Arbres_Aire_metropolitaine <- rbind(Arbres_00, Arbres_00, Arbres_00)
 
