@@ -1,19 +1,18 @@
 library(readxl)
+Deces <- read_excel("Décès maladies appareil circulaire pour R.xlsx", col_types = c("numeric", "numeric", "text", "numeric"))
+Pauvrete <- read_excel("Taux de pauvreté département pour R.xlsx", col_types = c("numeric", "numeric", "numeric", "numeric", "numeric", "numeric"))
+mortalite_cause_agg <- aggregate(Deces ~ departement + annee, data = Deces, FUN = sum)
 
-Deces <- read_excel("Deces_causes.xlsx", col_types = c("numeric", "numeric", "text", "numeric"))
 
-Pauvrete <- read_excel("Pauvrete_DEP.xlsx", col_types = c("numeric", "numeric", "numeric", "numeric"))
+mortalite_departement <- aggregate(Deces ~ departement, data = mortalite_cause_agg, FUN = sum)
 
-mortalite_cause_agg <- aggregate(DECES_NB ~ DEP + ANNEE, data = Deces, FUN = sum)
-mortalite_departement <- aggregate(DECES_NB ~ DEP, data = mortalite_cause_agg, FUN = sum)
+observations_departement <- merge(mortalite_departement, Pauvrete, by = "departement")
 
-donnees_combinees <- merge(mortalite_departement, Pauvrete, by = "DEP")
+observations_departement$taux_mortalite <- (observations_departement$Deces / donnees_combinees$Population) * 100000
 
-donnees_combinees$taux_mortalite <- (donnees_combinees$DECES_NB / donnees_combinees$POP) * 100000
-
-donnees_combinees <- donnees_combinees[order(donnees_combinees$PAUV_60), ]
-dep_median_eleve<- head(donnees_combinees, 10)
-dep_median_faible <- tail(donnees_combinees, 10)
+observations_departement <- observations_departement[order(observations_departement$Pauvrete_60), ]
+dep_median_eleve<- head(observations_departement, 10)
+dep_median_faible <- tail(observations_departement, 10)
 
 mortalite_riche <- mean(dep_median_eleve $taux_mortalite)
 mortalité_pauvre <- mean(dep_median_faible $taux_mortalite)
